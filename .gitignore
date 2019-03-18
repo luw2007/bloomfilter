@@ -102,3 +102,15 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+*.swp
+*.orig
+.DS_Store
+.project
+tags
+.idea
+.*un~
+
+dist
+build
+bloomfilter.egg-info/

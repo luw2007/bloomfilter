@@ -1,0 +1,2 @@
+-e git+https://github.com/seomoz/pyreBloom.git#egg=pyreBloom
+-e git+https://github.com/redis/hiredis.git#egg=hiredis
