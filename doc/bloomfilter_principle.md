@@ -22,15 +22,13 @@ BloomFilter的算法描述
 
 如果m是数组中的位数，则在插入元素期间某个散列函数未将某个位设置为1的概率是
 ![$1-{\frac {1}{m}}$](https://latex.codecogs.com/gif.latex?1-{\frac{1}{m}})
-
-如果k是散列函数的数量并且彼此之间没有显着的相关性，那么任何散列函数未将该位设置为1的概率是
-![$\left(1-{\frac {1}{m}}\right)^{k}$](https://latex.codecogs.com/gif.latex?\left(1-{\frac{1}{m}}\right)^{k}1-{\frac{1}{m}})
+如果k是散列函数的数量并且彼此之间没有显着的相关性，那么任何散列函数未将该位设置为1的概率是 ![$\left(1-{\frac {1}{m}}\right)^{k}$](https://latex.codecogs.com/gif.latex?\left(1-{\frac{1}{m}}\right)^{k})
 
 如果我们插入了n个元素，那么某个位仍为0的概率就是
-![${\displaystyle \left(1-{\frac {1}{m}}\right)^{kn}}$]( https://latex.codecogs.com/gif.latex?(1-{frac{1}{m}})^{kn}})
+![${\displaystyle \left(1-{\frac {1}{m}}\right)^{kn}}$](https://latex.codecogs.com/gif.latex?(1-{\frac{1}{m}})^{kn})
 
 因此，它是1的概率
-![${\displaystyle 1-\left(1-{\frac {1}{m}}\right)^{kn}}$](https://latex.codecogs.com/gif.latex?1-(1-{frac{1}{m}})^{kn}})
+![${\displaystyle 1-\left(1-{\frac {1}{m}}\right)^{kn}}$](https://latex.codecogs.com/gif.latex?1-(1-{\frac{1}{m}})^{kn})
 现在测试不在集合中的元素的成员资格。由散列函数计算的每个k个阵列位置是1，概率如上。
 所有这些都是1的概率，这将导致算法错误地声称该元素在集合中，通常作为
 ![${\displaystyle \left(1- \left[1-{\frac {1}{m}} \right]^{kn} \right)^{k}\approx \left(1-e^{-kn/m} \right)^{k}}$](https://latex.codecogs.com/gif.latex?E[q]=\left(1-\left[1-{\frac{1}{m}}\right]^{kn}\right)^{k}\approx\left(1-e^{-kn/m}\right)^{k})
@@ -71,7 +69,7 @@ Mitzenmacher和Upfal给出了另一种分析方法，该方法在不假设独立
 
 最后，交叉点可以估算为
 
-![${\displaystyle n(A^{ *}\cap B^{ *})= n(A^{ *})+ n(B^{ *})- n(A^{ *}\cup B^{ *})}$](https://latex.codecogs.com/gif.latex?n(A^{*}\capB^{*})=n(A^{*})+n(B^{*})-n(A^{*}\cupB^{*}))
+![${\displaystyle n(A^{ *}\cap B^{ *})= n(A^{ *})+ n(B^{ *})- n(A^{ *}\cup B^{ *})}$](https://latex.codecogs.com/gif.latex?n(A^*%20\cap%20B^{*})=n(A^{*})+n(B^{*})-n(A^{*}%20\cup%20B^{*}))
 
 一起使用这三个公式。
 
