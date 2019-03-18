@@ -1,7 +1,8 @@
 # bloom filter 过滤器
+高效的挡住无效的请求和流量，可用于数据库查询前，过滤非命中查询。也可以用来防止redis缓存击穿。
 
-很多业务量比较大,如果直接调用接口可能导致性能问题. 所以使用bloom filter 挡住无效的请求.
-高效的挡住无效的请求和流量，可用于数据库不存在，是否在集合中判断。
+## WHY
+[bloomfilter过滤器实战](doc/bloomfilter_in_action.md)
 
 ## 安装
 ```shell
