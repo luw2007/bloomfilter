@@ -3,6 +3,7 @@
 
 ## WHY
 [bloomfilter过滤器实战](doc/bloomfilter_in_action.md)
+[bloomfilter的原理](doc/bloomfiler_principle.md)
 
 ## 安装
 ```shell

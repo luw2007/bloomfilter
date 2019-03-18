@@ -11,9 +11,11 @@ bloomfilter过滤器实战
 ![缓存流程图](images/bloomfilter-cache-mysql.png)
 
 先查询缓存，缓存不命中再查询数据库。
-然后将查询结果放在缓存中即使数据不存在，也需要创建一个缓存，用来防止穿库。这里需要区分一下数据是否存在。如果数据不存在，缓存时间可以设置相对较短，防止因为主从同步等问题，导致问题被放大。
+然后将查询结果放在缓存中即使数据不存在，也需要创建一个缓存，用来防止穿库。这里需要区分一下数据是否存在。
+如果数据不存在，缓存时间可以设置相对较短，防止因为主从同步等问题，导致问题被放大。
 
-这个流程中存在薄弱的问题是，当用户量太大时，我们会缓存大量数据空数据，并且一旦来一波冷用户，会造成雪崩效应。对于这种情况，我们产生第二个版本流程:`redis过滤冷用户缓存流程`
+这个流程中存在薄弱的问题是，当用户量太大时，我们会缓存大量数据空数据，并且一旦来一波冷用户，会造成雪崩效应。
+对于这种情况，我们产生第二个版本流程:`redis过滤冷用户缓存流程`
 ![redis过滤冷用户的缓存流程图](images/bloomfilter-redis-cache-mysql.png)
 
 我们将数据库里面中命中的用户放在redis的set类型中，设置不过期。
@@ -21,7 +23,7 @@ bloomfilter过滤器实战
 redis中不存在就可以直接返回结果。
 如果存在就按照上面提到`一般业务缓存流程`处理。
 
-聪明如你肯定会想到更多的问题：
+聪明的你肯定会想到更多的问题：
 
 1. redis本身可以做缓存，为什么不直接返回数据呢？
 2. 如果数据量比较大，单个set，会有性能问题？
@@ -30,16 +32,22 @@ redis中不存在就可以直接返回结果。
 问题1需要区分业务场景，结果数据少，我们是可以直接使用redis作为缓存，直接返回数据。
 结果比较大就不太适合用redis存放了。比如ugc内容，一个评论里面可能存在上万字，业务字段多。
 
-redis使用有很多技巧。bigkey 危害比较大，无论是扩容，缩容带来的内存申请释放，还是查询命令使用不当，导致大量数据返回，都会影响redis的稳定。这里就不细谈原因及危害了。
-解决bigkey 方法很简单。我们可以使用hash函数来分桶，将数据分散到多个key中。减少单个key的大小，同时不影响查询效率。
+redis使用有很多技巧。bigkey 危害比较大，无论是扩容或缩容带来的内存申请释放，
+还是查询命令使用不当导致大量数据返回，都会影响redis的稳定。这里就不细谈原因及危害了。
+解决bigkey 方法很简单。我们可以使用hash函数来分桶，将数据分散到多个key中。
+减少单个key的大小，同时不影响查询效率。
 
 问题3是redis存储占用内存太大。因此我们需要减少内存使用。
 重新思考一下引入redis的目的。
 redis像一个集合，整个业务就是验证请求的参数是否在集合中。
 ![过滤器](images/bloomfilter-filter.png)
-这个结构像洗澡的时候用的双向阀门左边热水，右边冷水。
+这个结构就像洗澡的时候用的双向阀门：左边热水，右边冷水。
+
 大部分的编程语言都内置了filter。
-拿`python`举例，filter函数用于过滤序列，过滤掉不符合条件的元素，返回由符合条件元素组成的列表。我们看个例子：
+拿`python`举例，filter函数用于过滤序列，
+过滤掉不符合条件的元素，返回由符合条件元素组成的列表。
+
+我们看个例子：
 
     $ python2
     Python 2.7.10 (default, Oct  6 2017, 22:29:07)
@@ -171,58 +179,8 @@ data | k | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 1000000|250000|29890|14643|11375|10902
 -->
 
-上面的使用多个hash方法来降低碰撞就是BloomFilter的核心思想。
+上面的使用多个hash方法来降低碰撞就是BloomFilter的核心思想。
 
-BloomFilter的算法描述为：
-空bloom filter是m位的位数组，全部设置为0。还必须定义k个不同的散列函数，每个散列函数将一些集合元素映射或散列到m个阵列位置之一，从而生成均匀的随机分布。 通常， k是常数，远小于m，其与要添加的元素的数量成比例; k的精确选择和m的比例常数由过滤器的预期误报率决定。
-
-要添加元素，请将其提供给每个k哈希函数以获取k个数组位置。 将所有这些位置的位设置为1。
-
-要查询元素（匹配它是否在集合中，请将其提供给每个k哈希函数以获取k个数组位置。 如果这些位置的任何位为0，则该元素肯定不在该集合中 - 如果是，则插入时所有位都将设置为1。 如果全部都是1，则元素在集合中，或者在插入其他元素期间偶然将位设置为1，从而导致误报。
-
-虽然存在误报问题，但BloomFilter比其他数据结构具有强大的空间优势。 大部分数据结构（如：平衡二叉树，前缀树，哈希表）都要求至少存储数据项本身，或者数据的一部分。 但是，BloomFilter根本不存储数据项。 相比之下，具有1％误差和最佳值k的布隆过滤器每个元素仅需要大约9.6比特，而不管元素的大小。 这种优势部分来自于其紧凑性，继承自阵列，部分来自其概率性质。 通过每个元素仅添加约4.8位，可以将1％的误报率降低10倍。
-
-误报的可能性
-假设散列函数以相等的概率选择每个阵列位置。 如果m是数组中的位数，则在插入元素期间某个散列函数未将某个位设置为1的概率是
-![$1-{\frac {1}{m}}$](https://latex.codecogs.com/gif.latex?1-{\frac{1}{m}})
-如果k是散列函数的数量并且彼此之间没有显着的相关性，那么任何散列函数未将该位设置为1的概率是
-![$\left(1-{\frac {1}{m}}\right)^{k}$](https://latex.codecogs.com/gif.latex?\left(1-{\frac{1}{m}}\right)^{k}1-{\frac{1}{m}})
-如果我们插入了n个元素，那么某个位仍为0的概率就是
-![${\displaystyle \left(1-{\frac {1}{m}}\right)^{kn}}$](https://latex.codecogs.com/gif.latex?(1-{frac{1}{m}})^{kn}})
-因此，它是1的概率
-![${\displaystyle 1-\left(1-{\frac {1}{m}}\right)^{kn}}$](https://latex.codecogs.com/gif.latex?1-(1-{frac{1}{m}})^{kn}})
-现在测试不在集合中的元素的成员资格。 由散列函数计算的每个k个阵列位置是1，概率如上。 所有这些都是1的概率，这将导致算法错误地声称该元素在集合中，通常作为![${\displaystyle \left(1- \left[1-{\frac {1}{m}} \right]^{kn} \right)^{k}\approx \left(1-e^{-kn/m} \right)^{k}}$](https://latex.codecogs.com/gif.latex?E[q]=\left(1-\left[1-{\frac{1}{m}}\right]^{kn}\right)^{k}\approx\left(1-e^{-kn/m}\right)^{k})
-这不是严格正确的，因为它假定每个位被设置的概率是独立的。 然而，假设它是近似的，我们假设误差的概率随着m （阵列中的位数）的增加而减小，并且随着n （插入的元素的数量）的增加而增加。
-
-Mitzenmacher和Upfal给出了另一种分析方法，该方法在不假设独立性的情况下达到了相同的近似值。 将所有n个项添加到布隆过滤器后，令q为设置为0的m位的一部分。（即，仍设置为0的位数为qm ）然后，在测试时不在集合中的元素的成员资格，对于由任何k个散列函数给出的数组位置，该位被设置为1的概率是1-q中 。 因此，所有k个散列函数将其位设置为1的概率是  ![$(1-q)^k$](https://latex.codecogs.com/gif.latex?(1-q)^k)。 此外， q的期望值是对于n个项中的每一个，由k个散列函数中的每一个保持给定阵列位置不被触及的概率，这是（如上所述）
-
-![${\displaystyle E[q] = \left(1-{\frac {1}{m}} \right)^{kn}}$](https://latex.codecogs.com/gif.latex?E[q]=(1-{\frac{1}{m}})^{kn})
-
-在没有独立性假设的情况下，可以证明q非常强烈地集中在其预期值附近。 特别是，从Azuma-Hoeffding不等式 ，他们证明了
-![${\displaystyle \Pr(\left|q-E[q]\right|\geq {\frac {\lambda }{m}})\leq 2\exp(-2\lambda ^{2}/kn)}$](https://latex.codecogs.com/gif.latex?\Pr(\left|q-E[q]\right|\geq{\frac{\lambda}{m}})\leq2\exp(-2\lambda^{2}/kn))
-
-因此，我们可以说误报的确切概率是
-![${\displaystyle \sum _{t}\Pr(q=t)(1-t)^{k}\approx (1-E[q])^{k} = \left(1- \left[1-{\frac {1}{m}} \right]^{kn} \right)^{k}\approx \left(1-e^{-kn/m} \right)^{k}}$](https://latex.codecogs.com/gif.latex?\sum_{t}\Pr(q=t)(1-t)^{k}\approx(1-E[q])^{k}=\left(1-\left[1-{\frac{1}{m}}\right]^{kn}\right)^{k}\approx\left(1-e^{-kn/m}\right)^{k})
-像之前一样。
-
-布隆过滤器是一种紧凑表示一组项目的方法。 通常尝试计算两组之间的交集或并集的大小。 布隆过滤器可用于近似交集的大小和两组的并集。 Swamidass＆Baldi（2007）表明，对于长度为m的两个Bloom滤波器，它们的计数分别可以估算为
-
-![${\displaystyle n(A^{*})=-{\frac {m}{k}}\ln \left[1-{\frac {n(A)}{m}}\right]}$](https://latex.codecogs.com/gif.latex?n(A^{*})=-{\frac{m}{k}}\ln\left[1-{\frac{n(A)}{m}}\right])
-
-和
-
-![${\displaystyle n(B^{*})=-{\frac {m}{k}}\ln \left[1-{\frac {n(B)}{m}}\right]}$](https://latex.codecogs.com/gif.latex?n(B^{*})=-{\frac{m}{k}}\ln\left[1-{\frac{n(B)}{m}}\right])
-
-他们的联合的大小可以估计为
-
-![${\displaystyle n(A^{ *} \cup B^{ *})=-{\frac {m}{k}}\ln \left[1-{\frac {n(A \cup B)}{m}}\right]}$](https://latex.codecogs.com/gif.latex?n(A^{*}\cup%20B^{*})=-{\frac{m}{k}}\ln[1-{\frac{n(A\cup%20B)}{m}}])
-
-那里![A\cupB](https://latex.codecogs.com/gif.latex?n(A\cupB))是两个BloomFilter中任何一个中设置为1的位数。 最后，交叉点可以估算为
-
-![${\displaystyle n(A^{ *}\cap B^{ *})= n(A^{ *})+ n(B^{ *})- n(A^{ *}\cup B^{ *})}$](https://latex.codecogs.com/gif.latex?n(A^{*}\capB^{*})=n(A^{*})+n(B^{*})-n(A^{*}\cupB^{*}))
-
-
-一起使用这三个公式。
 
 适合的场景
 ---
@@ -542,66 +500,23 @@ cdef class pyreBloom(object):
                 _ = self.bf_conn
 ```
 
-项目依赖安装：
-```bash
-# install hiredis, pyreBloom
-git clone https://github.com/redis/hiredis.git /root/src/hiredis && \
-    cd /root/src/hiredis && \
-    make && make PREFIX=/usr install &&\
-    ldconfig
-git clone https://github.com/seomoz/pyreBloom /root/src/pyreBloom && \
-    cd /root/src/pyreBloom && \
-    python setup.py install
-```
-
-如何使用
-```python
-# coding=utf-8
-'''
-使用bloom filter 过滤用户
-'''
-from bloomfilter.base import BaseModel
-from bloomfilter.conf import user
-from bloomfilter.namespace import QDict
-
-
-class UserModel(BaseModel):
-    '''
-    用户加入的圈子
-
-    使用方法
-    >>> p = UserModel()
-    >>> p.delete()
-    >>> p.add('libaier')
-    1
-    >>> p.contains('libaier')
-    True
-    '''
-
-    PREFIX = user['key']
-    BF_SIZE = user['size']
-
-
-user_filter = UserCircleModel(redis=QDict(user['redis']))
-```
-
 进阶：计数过滤器(Counting Filter)
 ---
-提供了一种在BloomFilter上实现删除操作的方法，而无需重新重新创建过滤器。 在计数滤波器中，阵列位置（桶）从单个位扩展为n位计数器。 实际上，常规布隆过滤器可以被视为计数过滤器，其桶大小为一位。
+提供了一种在BloomFilter上实现删除操作的方法，而无需重新重新创建过滤器。在计数滤波器中，阵列位置（桶）从单个位扩展为n位计数器。实际上，常规布隆过滤器可以被视为计数过滤器，其桶大小为一位。
 
-插入操作被扩展为递增桶的值，并且查找操作检查每个所需的桶是否为非零。 然后，删除操作包括递减每个桶的值。
+插入操作被扩展为递增桶的值，并且查找操作检查每个所需的桶是否为非零。然后，删除操作包括递减每个桶的值。
 
-存储桶的算术溢出是一个问题，并且存储桶应该足够大以使这种情况很少见。 如果确实发生，则增量和减量操作必须将存储区设置为最大可能值，以便保留BloomFilter的属性。
+存储桶的算术溢出是一个问题，并且存储桶应该足够大以使这种情况很少见。如果确实发生，则增量和减量操作必须将存储区设置为最大可能值，以便保留BloomFilter的属性。
 
-计数器的大小通常为3或4位。 因此，计算布隆过滤器的空间比静态布隆过滤器多3到4倍。 相比之下， Pagh，Pagh和Rao（2005）以及Fan等人的数据结构。 （2014）也允许删除但使用比静态BloomFilter更少的空间。
+计数器的大小通常为3或4位。因此，计算布隆过滤器的空间比静态布隆过滤器多3到4倍。相比之下， Pagh，Pagh和Rao（2005）以及Fan等人的数据结构。（2014）也允许删除但使用比静态BloomFilter更少的空间。
 
-计数过滤器的另一个问题是可扩展性有限。 由于无法扩展计数布隆过滤器表，因此必须事先知道要同时存储在过滤器中的最大键数。 一旦超过表的设计容量，随着插入更多密钥，误报率将迅速增长。
+计数过滤器的另一个问题是可扩展性有限。由于无法扩展计数布隆过滤器表，因此必须事先知道要同时存储在过滤器中的最大键数。一旦超过表的设计容量，随着插入更多密钥，误报率将迅速增长。
 
-Bonomi等人。 （2006）引入了一种基于d-left散列的数据结构，它在功能上是等效的，但使用的空间大约是计算BloomFilter的一半。 此数据结构中不会出现可伸缩性问题。 一旦超出设计容量，就可以将密钥重新插入到双倍大小的新哈希表中。
+Bonomi等人。（2006）引入了一种基于d-left散列的数据结构，它在功能上是等效的，但使用的空间大约是计算BloomFilter的一半。此数据结构中不会出现可伸缩性问题。一旦超出设计容量，就可以将密钥重新插入到双倍大小的新哈希表中。
 
 Putze，Sanders和Singler（2007）的节省空间的变体也可用于通过支持插入和删除来实现计数过滤器。
 
-Rottenstreich，Kanizo和Keslassy（2012）引入了一种基于变量增量的新通用方法，该方法显着提高了计算布隆过滤器及其变体的误报概率，同时仍支持删除。 与计数布隆过滤器不同，在每个元素插入时，散列计数器以散列变量增量而不是单位增量递增。 要查询元素，需要考虑计数器的确切值，而不仅仅是它们的正面性。 如果由计数器值表示的总和不能由查询元素的相应变量增量组成，则可以将否定答案返回给查询。
+Rottenstreich，Kanizo和Keslassy（2012）引入了一种基于变量增量的新通用方法，该方法显着提高了计算布隆过滤器及其变体的误报概率，同时仍支持删除。与计数布隆过滤器不同，在每个元素插入时，散列计数器以散列变量增量而不是单位增量递增。要查询元素，需要考虑计数器的确切值，而不仅仅是它们的正面性。如果由计数器值表示的总和不能由查询元素的相应变量增量组成，则可以将否定答案返回给查询。
 
 外链：
 ---
