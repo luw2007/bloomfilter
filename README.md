@@ -2,8 +2,8 @@
 高效的挡住无效的请求和流量，可用于数据库查询前，过滤非命中查询。也可以用来防止redis缓存击穿。
 
 ## WHY
-[bloomfilter过滤器实战](doc/bloomfilter_in_action.md)
-[bloomfilter的原理](doc/bloomfiler_principle.md)
+- [bloomfilter过滤器实战](doc/bloomfilter_in_action.md)
+- [bloomfilter的原理](doc/bloomfiler_principle.md)
 
 ## 安装
 ```shell
