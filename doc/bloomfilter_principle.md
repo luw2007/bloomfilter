@@ -73,4 +73,9 @@ Mitzenmacher和Upfal给出了另一种分析方法，该方法在不假设独立
 
 一起使用这三个公式。
 
+了解原理之后，我们在使用的过程中还要确定空间大小和使用的hash数量。
+我们可以通过`bloom filter calculator`来计算。
 
+- https://hur.st/bloomfilter/
+- https://www.di-mgt.com.au/bloom-calculator.html
+- http://www.ccs.neu.edu/home/pete/bloom-filters/calculator.html
