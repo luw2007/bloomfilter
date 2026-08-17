@@ -1,67 +1,58 @@
-# bloom filter 过滤器
-高效的挡住无效的请求和流量，可用于数据库查询前，过滤非命中查询。也可以用来防止redis缓存击穿。
+# bloomfilter
 
-## WHY
-- [bloomfilter过滤器实战](doc/bloomfilter_in_action.md)
-- [bloomfilter的原理](doc/bloomfilter_principle.md)
+Redis-backed Bloom filter for rejecting definite misses before database or cache lookups.
 
-## 安装
-```shell
-git clone https://github.com/luw2007/bloomfilter.git && \
-    cd bloomfilter && \
-    pip install -r requirements.txt && \
-    python setup.py install
+The pure-Python backend uses `redis-py` and preserves pyreBloom's MurmurHash64A seeds, bit layout, and `<prefix>.<index>` Redis key names. Existing filters written by pyreBloom remain readable when capacity, error rate, and prefix are unchanged.
+
+## Install
+
+```bash
+python -m pip install .
 ```
 
-### 通过源代码安装项目依赖：
-pyreBloom, hiredis(非必须)
-```shell
-git clone https://github.com/redis/hiredis.git /root/src/hiredis && \
-    cd /root/src/hiredis && \
-    make && make PREFIX=/usr install &&\
-    ldconfig
-git clone https://github.com/seomoz/pyreBloom /root/src/pyreBloom && \
-    cd /root/src/pyreBloom && \
-    python setup.py install
-```
+Requirements: Python 3.9+ and Redis. No compiler, hiredis headers, or pyreBloom extension is required.
 
-## 使用方法:
+## Usage
+
 ```python
->>> from bloomfilter.base import BaseModel
->>> class TestModel(BaseModel):
-...    PREFIX = "bf:test"
->>> t = TestModel()
->>> t.add('hello')
-1
->>> t.extend(['hi', 'world'])
-2
->>> t.contains('hi')
-True
->>> t.delete()
+from bloomfilter.base import BaseModel
+
+
+class UserFilter(BaseModel):
+    PREFIX = "bf:users"
+    BF_SIZE = 100_000
+    BF_ERROR = 0.01
+
+
+users = UserFilter(redis={"host": "127.0.0.1", "port": 6379, "db": 0})
+users.add("alice")
+assert users.contains("alice")
+assert users.contains(["alice", "bob"]) == ["alice"]
+users.delete()
 ```
-## 可用方法:
-extend, keys, contains, add, put, hashes, bits, delete
 
-## 例子
-请查看[example](examples)目录
+Available methods: `add`, `put`, `extend`, `contains`, `keys`, and `delete`. `bits` and `hashes` expose the computed Bloom filter parameters.
 
 
-## Q&A
-1. 运行报错, 缺少pyreBloom?
+Values and prefixes must be `str` or bytes-like objects. Numeric IDs should be converted explicitly, for example `users.add(str(user_id))`. Redis connect and read operations default to a 1.5-second timeout; pass `socket_connect_timeout` or `socket_timeout` through the Redis configuration only when a different bound is required.
+## Compatibility
+
+The backend intentionally matches pyreBloom's current storage format:
+
+- MurmurHash64A with the same LCG-generated seeds
+- the same bit and hash-count formulas
+- Redis strings split at `0xFFFFFFFF` bits
+- keys named `<prefix>.0`, `<prefix>.1`, and so on
+
+Changing `PREFIX`, `BF_SIZE`, or `BF_ERROR` creates a different filter. Very old pyreBloom releases that predate deterministic LCG seeds are not compatible.
+
+## Development
+
+```bash
+python -m pip install -e '.[test]'
+pytest
 ```
-In [1]: from bloomfilter.base import BaseModel
----------------------------------------------------------------------------
-ModuleNotFoundError                       Traceback (most recent call last)
-<ipython-input-1-3172e213138d> in <module>
-----> 1 from bloomfilter.base import BaseModel
 
-~/github/bloomfilter/bloomfilter/base.py in <module>
-     52 import logging
-     53 from six import PY3 as IS_PY3
----> 54 from pyreBloom import pyreBloom, pyreBloomException
-     55
-     56 from bloomfilter.utils import force_utf8
+The integration test requires `BLOOMFILTER_REDIS_URL`, for example `redis://127.0.0.1:6379/15`.
 
-ModuleNotFoundError: No module named 'pyreBloom'
-```
-安装`pyreBloom`，pip install -r requirements.txt
+Design notes remain in [`doc/bloomfilter_in_action.md`](doc/bloomfilter_in_action.md) and [`doc/bloomfilter_principle.md`](doc/bloomfilter_principle.md).

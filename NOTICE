@@ -1,0 +1,1 @@
+The Redis storage layout, deterministic seed sequence, and MurmurHash64A compatibility implementation are derived from seomoz/pyreBloom commit ee01ba216714be823bb30eda7b8003ab8ea94a75, licensed under the MIT License. MurmurHash64A was originally published by Austin Appleby under the MIT License.

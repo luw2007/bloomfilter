@@ -223,16 +223,10 @@ BloomFilter 需要一个大的bitmap来存储。鉴于目前公司现状，最�
 redis集成BloomFilter方案：
 - 原生python 调用setbit 构造 BloomFilter
 - [lua脚本](https://github.com/erikdubbelboer/redis-lua-scaling-bloom-filter)
-- [Rebloom - Bloom Filter Module for Redis](https://github.com/RedisLabsModules/rebloom) (注：redis Module在redis4.0引入)
-- 使用hiredis 调用redis [pyreBloom](https://github.com/seomoz/pyreBloom)
+- RedisBloom module：适合可以控制 Redis 服务端模块的部署。
+- 本项目默认使用纯 Python `redis-py` backend，通过 `SETBIT`/`GETBIT` pipeline 操作 Redis。
 
-原生python 方法太慢，lua脚本和module 部署比较麻烦。于是我们推荐使用pyreBloom，底层使用。
-```shell
-pyreBloom:master λ ls
-Makefile      bloom.h       bloom.pxd     murmur.c      pyreBloom.pyx
-bloom.c       bloom.o       main.c        pyreBloom.c
-```
-从文件命名上可以看到bloom 使用c编写。pyreBloom 使用cython编写。
+旧版本曾依赖 pyreBloom + hiredis C extension。当前 backend 保留其 MurmurHash64A、LCG seeds、bit 数量公式和 `<prefix>.<index>` key 布局，因此相同配置写出的 Redis 数据兼容，但不再需要编译 C extension。
 
 bloom.h 里面实现BloomFilter的核心逻辑，完成与redis server的交互；hash函数；添加，检查和删除方法的实现。
 ```c
